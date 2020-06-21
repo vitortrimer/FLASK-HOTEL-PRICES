@@ -1,9 +1,21 @@
 from flask_restful import Resource, reqparse
 from models.hotel import HotelModel
 from flask_jwt_extended import jwt_required
+import sqlite3
+
+path_params = reqparse.RequestParser()
+path_params.add_argument('city', type=str)
+path_params.add_argument('min_stars', type=float)
+path_params.add_argument('max_stars', type=float)
+path_params.add_argument('min_night', type=float)
+path_params.add_argument('max_night', type=float)
+path_params.add_argument('limit', type=int)
+path_params.add_argument('offset', type=int)
 
 class Hotels(Resource):
   def get(self):
+    data = path_params.parse_args()
+    valid_data = {key:data[key] for key in data if data[key] is not None}
     return {'hotels': [hotel.json() for hotel in HotelModel.query.all()]}
 
 class Hotel(Resource):
