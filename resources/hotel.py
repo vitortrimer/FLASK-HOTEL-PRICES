@@ -3,6 +3,28 @@ from models.hotel import HotelModel
 from flask_jwt_extended import jwt_required
 import sqlite3
 
+def normalize_path_params(city=None, min_stars=0, max_stars=5, min_night=0, max_night=10000, limit=50, offset=0, **data):
+  if city:
+    return {
+      'min_stars': min_stars,
+      'max_stars': max_stars,
+      'min_night': min_night,
+      'max_night': max_night,
+      'city': city,
+      'limit': limit,
+      'offset': offset
+    }
+  else:
+    return {
+      'min_stars': min_stars,
+      'max_stars': max_stars,
+      'min_night': min_night,
+      'max_night': max_night,
+      'limit': limit,
+      'offset': offset
+    }
+
+
 path_params = reqparse.RequestParser()
 path_params.add_argument('city', type=str)
 path_params.add_argument('min_stars', type=float)
@@ -14,9 +36,39 @@ path_params.add_argument('offset', type=int)
 
 class Hotels(Resource):
   def get(self):
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+
     data = path_params.parse_args()
     valid_data = {key:data[key] for key in data if data[key] is not None}
-    return {'hotels': [hotel.json() for hotel in HotelModel.query.all()]}
+    parameters = normalize_path_params(**valid_data)
+
+    if not parameters.get('city'):
+      query = "SELECT * FROM hotels WHERE (stars >= ? and stars <= ?) \
+      and (night >= ? and night <= ?) \
+      LIMIT ? OFFSET ?"
+      query_tuple = tuple([parameters[key] for key in parameters])
+      result = cursor.execute(query, query_tuple)
+    else:
+      print([parameters[key] for key in parameters])
+      query = "SELECT * FROM hotels WHERE (stars >= ? and stars <= ?) \
+      and (night >= ? and night <= ?) \
+      and city = ?\
+      LIMIT ? OFFSET ?"
+      query_tuple = tuple([parameters[key] for key in parameters])
+      result = cursor.execute(query, query_tuple)
+
+    hotels = []
+    for line in result:
+      hotels.append({
+        'hotel_id': line[0],
+        'city': line[1],
+        'name': line[2],
+        'stars': line[3],
+        'night': line[4]
+      })
+
+    return {'hotels': hotels}
 
 class Hotel(Resource):
   args = reqparse.RequestParser()
